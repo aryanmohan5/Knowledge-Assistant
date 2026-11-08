@@ -53,6 +53,54 @@ If embedding fails, the partial chunks are removed and the document is marked `f
 
 The original PDF is not stored; only its metadata, checksum and chunks are kept.
 
+## Question answering: `POST /api/ask`
+
+This is a hybrid pipeline: two LLM calls with deterministic code between them and after them. Each stage is its own module in `src/lib/ask/`, and `pipeline.ts` wires them together.
+
+```
+token ──► Retrieval (searchByText, tenant pre-filtered) ─┐
+     └──► Decomposer (LLM #1 → JSON, zod-validated) ─────┤ in parallel
+                                                         ▼
+                  System 1 (deterministic TypeScript, fed ONLY the Decomposer JSON)
+                                                         ▼
+           Synthesizer (LLM #2: question + System 1 output + retrieved text)
+                                                         ▼
+                  Grounding check (deterministic citation verification)
+```
+
+| Stage | File | What it does |
+|---|---|---|
+| Token | `lib/tenant/assistantToken.ts` | Reads `Authorization: Bearer <token>` (or a body `token`), plus `Origin`. Resolves the organization and allowed knowledge bases. Bad, revoked or expired tokens get 401; a disallowed origin gets 403 before any AI call. |
+| Retrieval | `lib/rag/vectorSearch.ts` | Top 6 chunks, pre-filtered by `organizationId` (and the token's KB allow-list). Chunks below `ASK_MIN_RELEVANCE` are dropped. |
+| Decomposer | `ask/decomposer.ts` | LangChain `ChatOpenAI` in JSON mode returns `{ intent: eligibility \| policy_choice \| general_knowledge, parameters: { gpa, year, category }, confidence }`. Invalid output gets one repair attempt, then a deterministic fallback to `general_knowledge`. |
+| System 1 | `ask/system1/` | `checkEligibility(gpa, year)` (Boolean) and `routePolicy(category)` (choice). Rules live in `system1/rules.ts`: GPA ≥ 3.0 on a 4.0 scale, year 2–4, and five policy tracks with synonyms. Missing or invalid inputs are reported, never guessed. |
+| Synthesizer | `ask/synthesizer.ts` | Writes the answer from the question, System 1 output and retrieved text only. Facts are tagged `[Document.pdf - Page N]`, and decisions are tagged `[System 1: checkEligibility]`. Anything not covered gets the exact sentence "The knowledge base does not contain information to answer this question." |
+| Grounding | `ask/citations.ts` | Every tag must match a retrieved chunk (name and page) or a model that actually ran. Fabricated tags are stripped and `grounded` is set to false. |
+
+When there is neither relevant context nor a System 1 decision, the Synthesizer is **not called**. The fixed not-found reply is returned, along with a deterministic request for any missing inputs.
+
+The response contains `answer`, `grounded`, `citations`, `decomposition`, `system1`, `sources` (excerpts and scores) and a per-stage `trace`.
+
+Errors return `{ error, message }`:
+
+| Status | When |
+|---|---|
+| 400 | Invalid question |
+| 401 / 403 | Token or origin problem |
+| 502 `ai_provider_error` | An LLM failed; includes `stage` |
+| 503 `retrieval_unavailable` | Vector search failed |
+
+Provider details are logged on the server, not returned.
+
+```bash
+curl -X POST http://localhost:3000/api/ask \
+  -H "Authorization: Bearer ka_live_…" -H "Origin: http://localhost:3000" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"I am a sophomore with a 3.4 GPA. Am I eligible for the scholarship?"}'
+```
+
+The dashboard has an **Assistant tokens** panel (owner/admin) and an **Ask tester** that shows the answer, citations and full pipeline trace.
+
 ## Tenant isolation
 
 Isolation has two independent layers.
@@ -76,3 +124,4 @@ Rules:
 | `POST /api/knowledge-bases` | Multipart PDF upload (see above) |
 | `GET/DELETE /api/knowledge-bases/:id` | Delete (owner/admin) also removes the document's chunks |
 | `GET/POST /api/assistant-tokens`, `DELETE /api/assistant-tokens/:id` | Owner/admin only; the raw token is returned once |
+| `POST /api/ask` | Public, authenticated by assistant token; CORS for the token's allowed origins |

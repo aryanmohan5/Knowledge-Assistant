@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { formatBytes, MAX_DOCUMENTS_PER_ORG, MAX_PAGES_PER_PDF, MAX_PDF_BYTES } from "@/lib/limits";
+import { AskTester } from "./AskTester";
+import { TokensPanel } from "./TokensPanel";
 
 type Status = "pending" | "processing" | "ready" | "failed";
 
@@ -40,6 +42,7 @@ export function Dashboard({ user, organization }: Props) {
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const canDelete = user.role === "owner" || user.role === "admin";
+  const [askToken, setAskToken] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/knowledge-bases", { cache: "no-store" });
@@ -116,7 +119,7 @@ export function Dashboard({ user, organization }: Props) {
         <div>
           <h1 className="text-2xl font-semibold">{organization.name}</h1>
           <p className="text-sm text-muted">
-            {user.email} Â· {user.role}
+            {user.email} · {user.role}
           </p>
         </div>
         <button
@@ -131,7 +134,7 @@ export function Dashboard({ user, organization }: Props) {
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-semibold">Upload a PDF</h2>
           <p className="text-sm text-muted">
-            {count} of {MAX_DOCUMENTS_PER_ORG} documents Â· max {MAX_PAGES_PER_PDF} pages and{" "}
+            {count} of {MAX_DOCUMENTS_PER_ORG} documents · max {MAX_PAGES_PER_PDF} pages and{" "}
             {formatBytes(MAX_PDF_BYTES)} each
           </p>
         </div>
@@ -162,7 +165,7 @@ export function Dashboard({ user, organization }: Props) {
             disabled={atLimit || uploading}
             className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {uploading ? "Uploadingâ€¦" : "Upload"}
+            {uploading ? "Uploading…" : "Upload"}
           </button>
         </form>
         {atLimit && (
@@ -180,7 +183,7 @@ export function Dashboard({ user, organization }: Props) {
       <section className="mt-8">
         <h2 className="font-semibold">Documents</h2>
         {items === null ? (
-          <p className="mt-4 text-sm text-muted">Loadingâ€¦</p>
+          <p className="mt-4 text-sm text-muted">Loading…</p>
         ) : items.length === 0 ? (
           <p className="mt-4 rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted">
             No documents yet. Upload a PDF to get started.
@@ -208,7 +211,7 @@ export function Dashboard({ user, organization }: Props) {
                     </td>
                     <td className="px-4 py-3 tabular-nums">{item.pageCount}</td>
                     <td className="px-4 py-3 tabular-nums">{formatBytes(item.sizeBytes)}</td>
-                    <td className="px-4 py-3 tabular-nums">{item.status === "ready" ? item.chunkCount : "â€”"}</td>
+                    <td className="px-4 py-3 tabular-nums">{item.status === "ready" ? item.chunkCount : "—"}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={item.status} />
                       {item.status === "failed" && item.error && (
@@ -225,7 +228,7 @@ export function Dashboard({ user, organization }: Props) {
                           disabled={deleting === item._id}
                           className="text-sm text-danger hover:underline disabled:opacity-50"
                         >
-                          {deleting === item._id ? "Deletingâ€¦" : "Delete"}
+                          {deleting === item._id ? "Deleting…" : "Delete"}
                         </button>
                       )}
                     </td>
@@ -236,6 +239,9 @@ export function Dashboard({ user, organization }: Props) {
           </div>
         )}
       </section>
+
+      {canDelete && <TokensPanel onCreated={setAskToken} />}
+      <AskTester token={askToken} onTokenChange={setAskToken} />
     </div>
   );
 }
@@ -248,6 +254,6 @@ const STATUS_STYLES: Record<Status, string> = {
 };
 
 function StatusBadge({ status }: { status: Status }) {
-  const label = status === "processing" ? "Processingâ€¦" : status[0].toUpperCase() + status.slice(1);
+  const label = status === "processing" ? "Processing…" : status[0].toUpperCase() + status.slice(1);
   return <span className={`inline-block rounded-full border px-2 py-0.5 text-xs ${STATUS_STYLES[status]}`}>{label}</span>;
 }

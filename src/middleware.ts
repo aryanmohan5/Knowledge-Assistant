@@ -4,7 +4,8 @@ import { authConfig } from "@/auth.config";
 
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_API = [/^\/api\/auth(\/|$)/, /^\/api\/public(\/|$)/];
+// /api/ask authenticates with an assistant token, not a session.
+const PUBLIC_API = [/^\/api\/auth(\/|$)/, /^\/api\/public(\/|$)/, /^\/api\/ask$/];
 
 /**
  * First line of defense only: rejects unauthenticated API calls early.

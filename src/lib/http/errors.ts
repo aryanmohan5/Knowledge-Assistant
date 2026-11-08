@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { AiError } from "@/lib/ai/errors";
 import { TenantIsolationError } from "@/lib/db/plugins/tenantScope";
 
 export class HttpError extends Error {
@@ -29,6 +30,11 @@ export function toErrorResponse(err: unknown): NextResponse {
   }
   if (err instanceof ZodError) {
     return NextResponse.json({ error: "invalid_request", issues: err.issues }, { status: 400 });
+  }
+  if (err instanceof AiError) {
+    console.error(`[ai] ${err.stage} failed`, err.cause ?? err);
+    const code = err.status === 503 ? "retrieval_unavailable" : "ai_provider_error";
+    return NextResponse.json({ error: code, stage: err.stage, message: err.message }, { status: err.status });
   }
   if (err instanceof TenantIsolationError) {
     // Always a server bug: a code path tried to query without a tenant.
