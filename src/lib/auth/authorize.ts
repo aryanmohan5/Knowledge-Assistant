@@ -14,6 +14,8 @@ export type AuthorizedUser = {
   email: string;
   name?: string | null;
   organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
   role: UserRole;
 };
 
@@ -47,6 +49,8 @@ export async function authorizeCredentials(input: unknown): Promise<AuthorizedUs
     email: user.email,
     name: user.name,
     organizationId: org._id.toString(),
+    organizationName: org.name,
+    organizationSlug: org.slug,
     role: user.role as UserRole,
   };
 }

@@ -15,10 +15,6 @@ const organizationSchema = new Schema(
     },
     status: { type: String, enum: ["active", "suspended"], default: "active", required: true },
     plan: { type: String, enum: ["free", "pro", "enterprise"], default: "free", required: true },
-    settings: {
-      maxDocuments: { type: Number, default: 100, min: 0 },
-      maxUploadBytes: { type: Number, default: 25 * 1024 * 1024, min: 0 },
-    },
   },
   { timestamps: true, strict: "throw", strictQuery: "throw" },
 );

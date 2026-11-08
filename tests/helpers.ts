@@ -31,7 +31,7 @@ export function kbInput(ctx: TenantContext<UserPrincipal>, seed: string) {
     mimeType: "application/pdf" as const,
     sizeBytes: 1024,
     checksumSha256: createHash("sha256").update(seed).digest("hex"),
-    storageKey: `orgs/${ctx.organizationId}/knowledge-bases/${_id}.pdf`,
+    pageCount: 1,
     embeddingModel: "test",
     embeddingDimensions: 4,
     uploadedBy: ctx.principal.userId,

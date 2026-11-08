@@ -63,6 +63,16 @@ export function tenantRepo<T>(model: Model<T>, ctx: TenantContext) {
       return doc.toObject();
     },
 
+    /** Bulk insert; every document is stamped with this tenant. Returns the count inserted. */
+    async insertMany(docs: Array<Omit<Partial<T>, "organizationId">>) {
+      if (docs.length === 0) return 0;
+      const inserted = await model.insertMany(
+        docs.map((d) => ({ ...d, organizationId })),
+        { ordered: true },
+      );
+      return inserted.length;
+    },
+
     updateOne(filter: FilterQuery<T>, update: UpdateQuery<T>) {
       return model
         .findOneAndUpdate(scope(filter), update, { new: true, runValidators: true })

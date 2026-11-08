@@ -12,9 +12,11 @@ const knowledgeChunkSchema = new Schema(
   {
     ...tenantOwned,
     knowledgeBaseId: { type: Schema.Types.ObjectId, ref: "KnowledgeBase", required: true, immutable: true },
+    // Citation metadata: document id (knowledgeBaseId), document name and page.
+    documentName: { type: String, required: true, maxlength: 255 },
+    pageNumber: { type: Number, required: true, min: 1 },
     chunkIndex: { type: Number, required: true, min: 0 },
     text: { type: String, required: true, maxlength: 20_000 },
-    pageNumber: { type: Number, min: 1 },
     tokenCount: { type: Number, min: 0 },
     embedding: {
       type: [Number],

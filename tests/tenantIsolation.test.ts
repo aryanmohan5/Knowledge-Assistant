@@ -2,7 +2,7 @@ import { Types } from "mongoose";
 import { beforeEach, describe, expect, it } from "vitest";
 import { TenantIsolationError } from "@/lib/db/plugins/tenantScope";
 import { searchChunks } from "@/lib/rag/vectorSearch";
-import { createKnowledgeBase, deleteKnowledgeBase } from "@/lib/services/knowledgeBase";
+import { deleteKnowledgeBase } from "@/lib/services/knowledgeBase";
 import { AssistantToken, KnowledgeBase, KnowledgeChunk, User } from "@/models";
 import { kbInput, makeTenant } from "./helpers";
 
@@ -206,17 +206,12 @@ describe("tenantRepo (scoped access)", () => {
   });
 
   it("deletes a knowledge base together with only its own chunks", async () => {
-    const kb = await createKnowledgeBase(a.ctx, {
-      title: "Handbook",
-      fileName: "handbook.pdf",
-      mimeType: "application/pdf",
-      sizeBytes: 2048,
-      checksumSha256: "a".repeat(64),
-    });
-    expect(kb.storageKey).toBe(`orgs/${a.org._id}/knowledge-bases/${kb._id}.pdf`);
+    const kb = await a.r.knowledgeBases.create(kbInput(a.ctx, "handbook"));
 
     const chunk = (ctx: typeof a.ctx, kbId: Types.ObjectId, i: number) => ({
       knowledgeBaseId: kbId,
+      documentName: "handbook.pdf",
+      pageNumber: 1,
       chunkIndex: i,
       text: `chunk ${i}`,
       embedding: [0.1, 0.2, 0.3, 0.4],
@@ -237,6 +232,8 @@ describe("tenantRepo (scoped access)", () => {
     await expect(
       a.r.knowledgeChunks.create({
         knowledgeBaseId: kb._id,
+        documentName: "dims.pdf",
+        pageNumber: 1,
         chunkIndex: 0,
         text: "x",
         embedding: [1, 2, 3],

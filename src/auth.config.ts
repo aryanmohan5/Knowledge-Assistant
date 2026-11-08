@@ -13,6 +13,8 @@ export const authConfig = {
       if (user) {
         token.userId = user.id!;
         token.organizationId = user.organizationId;
+        token.organizationName = user.organizationName;
+        token.organizationSlug = user.organizationSlug;
         token.role = user.role;
       }
       return token;
@@ -20,6 +22,8 @@ export const authConfig = {
     session({ session, token }) {
       session.user.id = token.userId;
       session.user.organizationId = token.organizationId;
+      session.user.organizationName = token.organizationName;
+      session.user.organizationSlug = token.organizationSlug;
       session.user.role = token.role;
       return session;
     },

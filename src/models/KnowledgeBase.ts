@@ -1,8 +1,9 @@
 import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
 import { tenantOwned, tenantScope } from "@/lib/db/plugins/tenantScope";
+import { MAX_PAGES_PER_PDF, MAX_PDF_BYTES } from "@/lib/limits";
 
 export const KNOWLEDGE_BASE_STATUSES = ["pending", "processing", "ready", "failed"] as const;
-export const MAX_PDF_BYTES = 50 * 1024 * 1024;
+export { MAX_PDF_BYTES };
 
 /** One uploaded PDF and its ingestion metadata. Vectors live in KnowledgeChunk. */
 const knowledgeBaseSchema = new Schema(
@@ -14,9 +15,7 @@ const knowledgeBaseSchema = new Schema(
     mimeType: { type: String, required: true, enum: ["application/pdf"] },
     sizeBytes: { type: Number, required: true, min: 1, max: MAX_PDF_BYTES },
     checksumSha256: { type: String, required: true, lowercase: true, match: /^[a-f0-9]{64}$/ },
-    // Object-storage key; always prefixed with the tenant (see knowledgeBaseService).
-    storageKey: { type: String, required: true, immutable: true },
-    pageCount: { type: Number, min: 0 },
+    pageCount: { type: Number, required: true, min: 1, max: MAX_PAGES_PER_PDF },
     status: { type: String, enum: KNOWLEDGE_BASE_STATUSES, default: "pending", required: true },
     error: { type: String, maxlength: 2000 },
     chunkCount: { type: Number, default: 0, min: 0 },

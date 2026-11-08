@@ -1,4 +1,5 @@
 import { Types, type PipelineStage } from "mongoose";
+import { embedTexts } from "@/lib/ai/embeddings";
 import { getEmbeddingConfig } from "@/lib/env";
 import { HttpError } from "@/lib/http/errors";
 import { repos } from "@/lib/tenant/repos";
@@ -7,8 +8,9 @@ import type { TenantContext } from "@/lib/tenant/types";
 export type ChunkHit = {
   _id: Types.ObjectId;
   knowledgeBaseId: Types.ObjectId;
+  documentName: string;
+  pageNumber: number;
   chunkIndex: number;
-  pageNumber?: number;
   text: string;
   score: number;
 };
@@ -60,8 +62,9 @@ export async function searchChunks(
     {
       $project: {
         knowledgeBaseId: 1,
-        chunkIndex: 1,
+        documentName: 1,
         pageNumber: 1,
+        chunkIndex: 1,
         text: 1,
         score: { $meta: "vectorSearchScore" },
       },
@@ -69,4 +72,14 @@ export async function searchChunks(
   ];
 
   return repos(ctx).knowledgeChunks.aggregate<ChunkHit>(pipeline);
+}
+
+/** Embeds a natural-language query with the configured provider, then searches. */
+export async function searchByText(
+  ctx: TenantContext,
+  query: string,
+  opts: Parameters<typeof searchChunks>[2] = {},
+): Promise<ChunkHit[]> {
+  const [vector] = await embedTexts([query], "query");
+  return searchChunks(ctx, vector, opts);
 }
