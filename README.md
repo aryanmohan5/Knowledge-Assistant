@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Knowledge Assistant
 
-## Getting Started
+A multi-tenant RAG SaaS built on Next.js 15, MongoDB Atlas (Mongoose) and Auth.js v5. The backend foundation is in place; there is no UI yet.
 
-First, run the development server:
+## Setup
 
 ```bash
+cp .env.example .env.local   # fill in MONGODB_URI (Atlas) and AUTH_SECRET
+npm install
+npm run db:indexes           # unique indexes + Atlas Vector Search index
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Script | Purpose |
+|---|---|
+| `npm test` | Isolation, auth and token suites (in-memory replica set) |
+| `npm run typecheck` / `npm run lint` | Strict TS; ESLint enforces the data-access rules below |
+| `npm run db:indexes` | Creates or updates `chunk_vector_index` (`EMBEDDING_DIMENSIONS`, cosine, filters on `organizationId` and `knowledgeBaseId`) |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tenant isolation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Isolation has two independent layers.
 
-## Learn More
+1. **`repos(ctx)`** (`src/lib/tenant/`) is the only data API that route handlers may use. It forces `organizationId` into every filter, payload and pipeline. A document id from another tenant resolves to `null`, which the API returns as 404.
+2. **`tenantScope` plugin** (`src/lib/db/plugins/tenantScope.ts`) is a hard guard on every tenant model. Any query, update, aggregate, insert or bulk write that isn't pinned to one exact `organizationId` throws `TenantIsolationError`. That includes `$ne`/`$in`, arrays, and an organization filter that appears only inside `$or`. It also rejects updates to `organizationId`, `$lookup`/`$unionWith` without a tenant match, `$out`/`$merge`, and `estimatedDocumentCount`.
 
-To learn more about Next.js, take a look at the following resources:
+Rules:
+- Route handlers call `requireTenant()`, which re-checks on every request that the org and user are still active, and then use `repos(ctx)`. ESLint blocks importing models, `mongoose` or `@/lib/db/system` under `src/app/**`.
+- Cross-tenant lookups happen only in `src/lib/db/system.ts` (org by slug, assistant token by hash), using a per-process bypass key.
+- Middleware is only a first filter; the real boundary is `requireTenant()`.
+- `Model.collection.*` (the raw driver) skips Mongoose middleware. Don't use it for tenant data.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Data model
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Organization**: the tenant.
+- **User**: email is unique per organization.
+- **KnowledgeBase**: one PDF's metadata. Its storage key is `orgs/<orgId>/...`, and checksums are unique per tenant.
+- **KnowledgeChunk**: text plus `embedding`. This is the vector collection.
+- **AssistantToken**: embed credentials. Only the SHA-256 hash is stored, and each token has an origin allow-list, an optional KB restriction, expiry and revocation.
 
-## Deploy on Vercel
+## API
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Route | Notes |
+|---|---|
+| `POST /api/auth/register` | Creates the org and its owner in one transaction |
+| `/api/auth/*` | Auth.js; credentials are `organizationSlug`, `email`, `password` |
+| `GET/POST /api/knowledge-bases`, `GET/DELETE /api/knowledge-bases/:id` | |
+| `GET/POST /api/assistant-tokens`, `DELETE /api/assistant-tokens/:id` | Owner/admin only; the raw token is returned once |
