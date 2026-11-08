@@ -16,6 +16,8 @@ export type AskInput = {
   origin: string | null;
   question: string;
   knowledgeBaseIds?: string[];
+  /** Origins trusted in addition to the token's allow-list (the app's own origin). */
+  trustedOrigins?: string[];
 };
 
 /**

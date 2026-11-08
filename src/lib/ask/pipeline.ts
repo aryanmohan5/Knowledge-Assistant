@@ -42,6 +42,8 @@ export type StageTrace = {
 export type AskResult = {
   answer: string;
   grounded: boolean;
+  /** The answer is (or includes) the explicit "not in the knowledge base" reply. */
+  notFound: boolean;
   citations: Citation[];
   invalidCitations: string[];
   decomposition: DecomposerOutcome;
@@ -82,7 +84,7 @@ async function timed<T>(trace: StageTrace[], stage: StageTrace["stage"], fn: () 
 
 /** Resolves the token alone, so the route can set CORS headers even when later stages fail. */
 export async function authorizeAsk(input: AskInput, deps: Pick<AskDeps, "resolveToken"> = defaultDeps) {
-  const resolved = await deps.resolveToken(input.token, input.origin);
+  const resolved = await deps.resolveToken(input.token, input.origin, { trustedOrigins: input.trustedOrigins });
   if (!resolved.ok) throw TOKEN_ERRORS[resolved.reason];
   return resolved.ctx;
 }
@@ -169,6 +171,7 @@ export async function answerQuestion(
   return {
     answer: report.answer,
     grounded: report.grounded,
+    notFound: report.notFound,
     citations: report.citations,
     invalidCitations: report.invalidCitations,
     decomposition,

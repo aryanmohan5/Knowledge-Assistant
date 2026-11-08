@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Northbridge University · Student Portal (demo host site)</title>
+  <style>
+    :root { --ink: #1d2433; --muted: #5d6576; --line: #e3e6ec; --brand: #6b1f2a; --bg: #f6f5f2; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Georgia, "Times New Roman", serif; color: var(--ink); background: var(--bg); }
+    header { background: var(--brand); color: #fff; padding: 18px 24px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 22px; letter-spacing: .3px; }
+    header nav { font-family: system-ui, sans-serif; font-size: 14px; opacity: .85; display: flex; gap: 16px; }
+    main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 120px; display: grid; grid-template-columns: 1fr 380px; gap: 32px; }
+    article h2 { margin-top: 0; font-size: 26px; }
+    article p, article li { line-height: 1.6; font-size: 17px; }
+    .note { font-family: system-ui, sans-serif; font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 12px; }
+    aside h3 { font-family: system-ui, sans-serif; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
+    .assistant-frame { width: 100%; height: 600px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 6px 24px rgba(20, 24, 33, .08); }
+    .setup { font-family: system-ui, sans-serif; font-size: 14px; background: #fff; border: 1px dashed #c9ced8; border-radius: 12px; padding: 16px; line-height: 1.5; }
+    .setup code { background: #f0f1f4; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+    footer { font-family: system-ui, sans-serif; font-size: 12px; color: var(--muted); text-align: center; padding: 24px; }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Northbridge University</h1>
+    <nav><span>Students</span><span>Financial Aid</span><span>Housing</span><span>Policies</span></nav>
+  </header>
+
+  <main>
+    <article>
+      <h2>Welcome to the Student Portal</h2>
+      <p>
+        This page stands in for a third-party website. It has no connection to the Knowledge Assistant
+        except the <code>&lt;iframe&gt;</code> on the right, the same snippet a customer would paste into their own site.
+      </p>
+      <p>Try asking the assistant:</p>
+      <ul>
+        <li>I have a 3.2 GPA and I am a junior. Am I eligible for the merit scholarship?</li>
+        <li>Which office handles housing policies?</li>
+        <li>What is the cafeteria's lunch menu? <em>(not in the documents)</em></li>
+      </ul>
+      <p class="note">
+        Answers come only from this organization's uploaded PDFs, with document and page citations.
+        Eligibility and routing decisions are computed by deterministic rules, not by the AI.
+      </p>
+    </article>
+
+    <aside>
+      <h3>Ask Northbridge</h3>
+      <div id="assistant"></div>
+    </aside>
+  </main>
+
+  <footer>Demo host page · served at its own origin so the assistant's frame-ancestors policy applies</footer>
+
+  <script>
+    // The token is passed in the URL (printed by `npm run seed`), so no credential lives in this file:
+    //   http://localhost:5500/demo.html?token=ka_live_...&app=http://localhost:3000
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var token = params.get("token");
+      var app = (params.get("app") || "http://localhost:3000").replace(/\/+$/, "");
+      var slot = document.getElementById("assistant");
+
+      if (!token) {
+        slot.innerHTML =
+          '<div class="setup"><strong>No assistant token yet.</strong><br>' +
+          "1. Start the app: <code>npm run dev</code><br>" +
+          "2. Seed demo data: <code>npm run seed</code><br>" +
+          "3. Serve this page: <code>npm run demo</code><br>" +
+          "4. Open the <code>demo.html?token=…</code> URL the seed printed.<br><br>" +
+          "Or create a token on the dashboard with <code>" + window.location.origin + "</code> as an allowed origin and add <code>?token=…</code> to this URL.</div>";
+        return;
+      }
+
+      // --- Embed snippet: this is all a customer site needs. ---
+      var iframe = document.createElement("iframe");
+      iframe.className = "assistant-frame";
+      iframe.title = "Northbridge University assistant";
+      iframe.src = app + "/embed/" + encodeURIComponent(token);
+      iframe.allow = "clipboard-write";
+      iframe.referrerPolicy = "no-referrer";
+      slot.appendChild(iframe);
+    })();
+  </script>
+</body>
+</html>

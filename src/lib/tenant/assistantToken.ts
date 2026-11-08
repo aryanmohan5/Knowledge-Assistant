@@ -83,6 +83,14 @@ export type ResolveFailure = "malformed" | "not_found" | "revoked" | "expired" |
 export async function resolveAssistantToken(
   rawToken: string | null | undefined,
   origin: string | null | undefined,
+  opts: {
+    /**
+     * Origins accepted in addition to the token's allow-list: the app's own
+     * origin, i.e. requests from the hosted /embed page (whose framing is
+     * restricted by frame-ancestors) and the dashboard tester.
+     */
+    trustedOrigins?: string[];
+  } = {},
 ): Promise<{ ok: true; ctx: TenantContext<AssistantTokenPrincipal> } | { ok: false; reason: ResolveFailure }> {
   if (!rawToken || !TOKEN_REGEX.test(rawToken)) return { ok: false, reason: "malformed" };
 
@@ -97,7 +105,16 @@ export async function resolveAssistantToken(
   } catch {
     normalized = null;
   }
-  if (!normalized || !token.allowedOrigins.includes(normalized)) return { ok: false, reason: "origin_not_allowed" };
+  const trusted = (opts.trustedOrigins ?? []).flatMap((o) => {
+    try {
+      return [normalizeOrigin(o)];
+    } catch {
+      return [];
+    }
+  });
+  if (!normalized || !(token.allowedOrigins.includes(normalized) || trusted.includes(normalized))) {
+    return { ok: false, reason: "origin_not_allowed" };
+  }
 
   const org = await findOrganizationById(token.organizationId);
   if (!org || org.status !== "active") return { ok: false, reason: "org_inactive" };
